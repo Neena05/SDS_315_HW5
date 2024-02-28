@@ -1,0 +1,154 @@
+---
+title: "SDS_315_HW_5"
+author: "Neena Varanasi"
+date: "2024-02-26"
+output: pdf_document
+---
+
+Name: Neena Varanasi
+
+EID: nv6558
+
+[Github Link]()
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE, echo=FALSE, warning = FALSE}
+library(tidyverse)
+library(mosaic)
+library(kableExtra)
+```
+
+## Problem 1
+```{r, message = FALSE, echo=FALSE}
+#nflip(n=2021, prob=0.024)
+
+sim_trades = do(10000)*nflip(n=2021, prob=0.024)
+
+ggplot(sim_trades) + 
+  geom_histogram(aes(x=nflip), binwidth=1) +
+  ggtitle("Simulation of Number of Trades Flagged")
+
+trades_pval = sum(sim_trades >= 70) / 10000
+
+```
+
+Null Hypothesis: The SEC detection tools flags trades for illegal activity 2.4% of the time.
+
+Test Statistic: The test statistic is the number of flags. A higher number of flags implies stronger evidence against the null hypothesis?? In our data, the SEC flagged the Iron Bank for 70 out of 2021 trades for illegal market activity.
+
+The p-value is `r print(trades_pval)`
+
+Therefore, the null hypothesis is not as plausible in light of the data because the p-value of .0013 is less than the SEC's illegal flagging rate of .0024.
+
+## Problem 2
+```{r, message = FALSE, echo=FALSE}
+#nflip(n=1500, prob=0.03)
+
+sim_ins = do(100000)*nflip(n=50, prob=0.03)
+ggplot(sim_ins) + 
+  geom_histogram(aes(x=nflip), binwidth=1)
+
+ins_pval = sum(sim_ins >= 8) / 100000#ASK ABOUT THIS
+
+```
+Null Hypothesis: The local Health Department cites approximately 3% of the restaurants inspected.
+
+Test Statistic: The test statistic is the number of health inspection In our data, the health department flagged the Gourmet Cookies in 8 out of the 50 city inspections for the chain.
+
+The p-value is `r print(ins_pval)`
+
+Therefore, the null hypothesis is not as plausible in light of the data because the p-value of `r print(ins_pval)` is less than the health department's  violation rate of .03.
+
+#### Are the observed data for Gourmet Bites consistent with the Health Department’s null hypothesis that, on average, restaurants in the city are cited for health code violations at the same 3% baseline rate?
+No, the observed data is not consistent with the null hypothesis for restaurants in the city, which is evident by the p-value of Gourmet Cookies' inspections.
+
+## Problem 3
+### Part A
+```{r, message = FALSE, echo=FALSE, warning=FALSE}
+file_path <- "C:/Users/neena/Downloads/brown_sentences.txt"
+
+brown_sentences <- readLines(file_path)
+
+brown_sentences = tibble(brown_sentences = brown_sentences)
+
+setwd("C:/Users/neena/Downloads")
+freq_table = read_csv("letter_frequencies.csv")
+```
+```{r, message = FALSE, echo=FALSE}
+#insert for loop for each sentence
+calculate_chi_squared = function(brown_sentences, freq_table) {
+  # Ensure letter frequencies are normalized and sum to 1
+  freq_table$Probability = freq_table$Probability / sum(freq_table$Probability)
+  
+  # Remove non-letters and convert to uppercase
+  brown_sentences = gsub("[^A-Za-z]", "", brown_sentences)
+  brown_sentences = toupper(brown_sentences)
+  
+  # Count the occurrences of each letter in the sentence
+  observed_counts = table(factor(strsplit(brown_sentences, "")[[1]], levels = freq_table$Letter))
+  
+  # Calculate expected counts
+  total_letters = sum(observed_counts)
+  expected_counts = total_letters * freq_table$Probability
+  
+  # Chi-squared statistic
+  chi_squared_stat = sum((observed_counts - expected_counts)^2 / expected_counts)
+  
+  return(chi_squared_stat)
+}
+
+chi_squared_stats <- list()
+
+for (x in 1:nrow(brown_sentences)) {
+  chi_squared_stats[x] = calculate_chi_squared(brown_sentences[x,], freq_table)
+}
+
+null_distribution = unlist(chi_squared_stats)
+ggplot(data = NULL, aes(x = unlist(null_distribution))) +
+  geom_histogram(binwidth = 1) +
+  ggtitle("Chi Squared Distribution") +
+  xlab("Chi Squared Statistic") +
+  ylab("Frequency")
+
+#mean(unlist(null_distribution))
+```
+
+### Part B
+```{r, message = FALSE, echo=FALSE}
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations"
+)
+```
+
+```{r, message = FALSE, echo=FALSE}
+p_values_sentences <- list()
+for (x in 1:length(sentences)) {
+  chi_squared_stat = calculate_chi_squared(sentences[x], freq_table)
+  p_value <- sum(null_distribution >= chi_squared_stat) / length(null_distribution)
+  p_values_sentences <- append(p_values_sentences, p_value)
+  
+}
+
+
+p_values_df <- data.frame(Sentence = paste("Sentence #", 1:10, sep = ""), p_value = unlist(p_values_sentences))
+
+p_values_df %>%
+  kbl(digits = 3, booktabs = TRUE, caption = "P-Values for Sentences") %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+#### One of these sentences has been produced by an LLM, but watermarked by asking the LLM to subtly adjust its frequency distribution over letters. Which sentence is it? How do you know? 
+
+Sentence #6 ("Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.") has been watermarked by an LLM. I know this because the p-value is unusually low for Sentence #6, meaning the sentence does not follow the usual English language distribution according to the null distribution.
